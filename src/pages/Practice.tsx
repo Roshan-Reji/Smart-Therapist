@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { supabase } from "@/utils/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const practiceWords = [
   "Hello, how are you today?",
@@ -19,13 +21,24 @@ const practiceWords = [
 const Practice = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
+  const { user } = useAuth();
 
-  const handleResult = (result: {
+  const handleResult = async (result: {
     transcribedText: string;
     accuracy: number;
     feedback: string;
   }) => {
     setScores((prev) => [...prev, result.accuracy]);
+
+    if (!user) return;
+
+    // Persist practice attempt to Supabase
+    await supabase.from("practice_sessions").insert({
+      user_id: user.id,
+      phrase: practiceWords[currentIndex],
+      accuracy: result.accuracy,
+      feedback: result.feedback,
+    });
   };
 
   const nextPhrase = () => {

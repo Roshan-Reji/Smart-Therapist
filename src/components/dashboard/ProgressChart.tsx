@@ -10,18 +10,81 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/utils/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
-const data = [
-  { day: "Mon", score: 65, sessions: 2 },
-  { day: "Tue", score: 72, sessions: 3 },
-  { day: "Wed", score: 68, sessions: 2 },
-  { day: "Thu", score: 78, sessions: 4 },
-  { day: "Fri", score: 85, sessions: 3 },
-  { day: "Sat", score: 82, sessions: 2 },
-  { day: "Sun", score: 88, sessions: 3 },
-];
+type WeeklyPoint = {
+  day: string;
+  score: number;
+};
 
 export function ProgressChart() {
+  const { user } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["weekly-practice", user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<WeeklyPoint[]> => {
+      if (!user) return [];
+
+      // Last 7 days of practice, grouped by date
+      const { data, error } = await supabase
+        .from("practice_sessions")
+        .select("accuracy, created_at")
+        .eq("user_id", user.id)
+        .gte(
+          "created_at",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        )
+        .order("created_at", { ascending: true });
+
+      if (error || !data) {
+        console.error("Error loading practice_sessions", error);
+        return [];
+      }
+
+      const byDay = new Map<
+        string,
+        { total: number; count: number }
+      >();
+
+      data.forEach((row) => {
+        const d = new Date(row.created_at as string);
+        const key = d.toLocaleDateString(undefined, {
+          weekday: "short",
+        });
+        const current = byDay.get(key) ?? { total: 0, count: 0 };
+        const accuracy =
+          typeof row.accuracy === "number"
+            ? row.accuracy
+            : parseFloat(String(row.accuracy));
+        byDay.set(key, {
+          total: current.total + accuracy,
+          count: current.count + 1,
+        });
+      });
+
+      return Array.from(byDay.entries()).map(([day, stats]) => ({
+        day,
+        score: Math.round(stats.total / Math.max(stats.count, 1)),
+      }));
+    },
+  });
+
+  const chartData =
+    data && data.length > 0
+      ? data
+      : [
+          { day: "Mon", score: 0 },
+          { day: "Tue", score: 0 },
+          { day: "Wed", score: 0 },
+          { day: "Thu", score: 0 },
+          { day: "Fri", score: 0 },
+          { day: "Sat", score: 0 },
+          { day: "Sun", score: 0 },
+        ];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -43,19 +106,35 @@ export function ProgressChart() {
             <div className="h-3 w-3 rounded-full bg-primary" />
             <span className="text-xs text-muted-foreground">Score</span>
           </div>
+          {isLoading && (
+            <span className="text-xs text-muted-foreground">
+              Loading...
+            </span>
+          )}
         </div>
       </div>
 
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(174, 62%, 47%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(174, 62%, 47%)" stopOpacity={0} />
+                <stop
+                  offset="5%"
+                  stopColor="hsl(174, 62%, 47%)"
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(174, 62%, 47%)"
+                  stopOpacity={0}
+                />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(180, 20%, 88%)" />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="hsl(180, 20%, 88%)"
+            />
             <XAxis
               dataKey="day"
               axisLine={false}

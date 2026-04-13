@@ -87,10 +87,18 @@ export const loadAudioAsArrayBuffer = async (blob: Blob): Promise<Float32Array> 
   const arrayBuffer = await blob.arrayBuffer();
   const audioContext = new AudioContext({ sampleRate: 16000 });
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  
-  // Get audio data from first channel
-  const audioData = audioBuffer.getChannelData(0);
-  
+
+  // Copy channel data so closing the context doesn't clear the buffer in some browsers
+  const channelData = audioBuffer.getChannelData(0);
+  const audioData = new Float32Array(channelData.length);
+  audioData.set(channelData);
+
+  const peak = channelData.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0);
+  console.log(
+    "Audio stats",
+    JSON.stringify({ sampleRate: audioBuffer.sampleRate, duration: audioBuffer.duration, peakAmplitude: peak })
+  );
+
   await audioContext.close();
   return audioData;
 };

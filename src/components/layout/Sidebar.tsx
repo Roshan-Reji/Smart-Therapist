@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
+import {
   LayoutDashboard, 
   Gamepad2, 
   Users, 
@@ -8,10 +8,13 @@ import {
   Settings,
   Heart,
   Mic,
-  MessageSquare
+  MessageSquare,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -24,6 +27,13 @@ const navItems = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <motion.aside
@@ -81,11 +91,22 @@ export function Sidebar() {
             <span className="text-xs text-muted-foreground">Theme</span>
             <ThemeToggle />
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-secondary p-3">
-            <Heart className="h-4 w-4 text-accent" />
-            <span className="text-xs text-muted-foreground">
-              Speech Therapy Made Fun
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+              <Heart className="h-4 w-4 text-accent" />
+              <span className="text-xs text-muted-foreground">
+                Speech Therapy Made Fun
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleLogout}
+              title="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
